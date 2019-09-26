@@ -25,8 +25,8 @@ space = {
 def main(args):
     # directory structure:
     # args.dir/param-id/
-    #                   params -- parameters in form: -dim $dim -lr $lr ...
-    #                   result -- output value to optimize, e.g., loss
+    #                   params  -- parameters in form: -dim $dim -lr $lr ...
+    #                   results -- results to optimize on
 
     out_dir = args.dir
 
