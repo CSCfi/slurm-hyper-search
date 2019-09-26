@@ -22,6 +22,7 @@ space = {
 #     'gamma': scipy.stats.expon(scale=.1),
 
 
+# This is just so that JSON can handle np.int64 type objects
 class NpEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, np.integer):
@@ -33,7 +34,6 @@ class NpEncoder(json.JSONEncoder):
 def main(args):
     rng = np.random.RandomState(args.seed)
     ps = ParameterSampler(space, n_iter=args.n, random_state=rng)
-
     print(json.dumps(list(ps), indent=2, cls=NpEncoder))
 
 
