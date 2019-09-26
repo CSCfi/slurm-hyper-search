@@ -11,15 +11,15 @@
 FASTTEXT=~/projappl/hpd/mvsjober/fastText/fasttext
 TRAIN_DATA=~/scratch/hpd/mvsjober/fasttext/yso-cicero-fasttext-train-10k.txt
 TEST_DATA=~/scratch/hpd/mvsjober/fasttext/yso-cicero-fasttext-valid.txt
+
+PARAMS="$1/${SLURM_ARRAY_TASK_ID}/params"
+if [ ! -f "$PARAMS" ]; then
+    echo "ERROR: could not find parameter file $PARAMS"
+    exit 1
+fi
+
 MODEL=$(mktemp)
 
-srun $FASTTEXT supervised -input $TRAIN_DATA -output $MODEL \
-     -dim %dim \
-     -lr %lr \
-     -epoch %epoch \
-     -minCount %minCount \
-     -wordNgrams %ngrams \
-     -minn %minn \
-     -maxn %maxn
-
+set -xv
+srun $FASTTEXT supervised -input $TRAIN_DATA -output $MODEL $(cat $PARAMS)
 srun $FASTTEXT test ${MODEL}.bin $TEST_DATA 5
