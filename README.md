@@ -14,3 +14,8 @@ To submit the 10 first runs to slurm:
 
     sbatch -a 0-9 slurm-array.sh test-1
     
+At any time you can check what is the best run so far (it will also report missing and empty results files, which might indicate problems):
+
+    ./check_results.py test-1 P@5
+
+The second argument is the measure you want to optimize.  The script assumes that the format of the results file is one measure per line, and the measure name and value are whitespace-separated.
