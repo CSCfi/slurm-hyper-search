@@ -14,10 +14,13 @@ TEST_DATA=~/scratch/hpd/mvsjober/fasttext/yso-cicero-fasttext-valid.txt
 
 PARAMS_FILE="$1/${SLURM_ARRAY_TASK_ID}/params"
 RESULTS_FILE="$1/${SLURM_ARRAY_TASK_ID}/results"
+SLURM_ID_FILE="$1/${SLURM_ARRAY_TASK_ID}/slurm_id_${SLURM_JOB_ID}_${SLURM_PROCID}"
+
 if [ ! -f "$PARAMS_FILE" ]; then
     echo "ERROR: could not find parameter file $PARAMS_FILE"
     exit 1
 fi
+touch $SLURM_ID_FILE
 
 MODEL=$(mktemp)
 PARAMS=$(cat $PARAMS_FILE)

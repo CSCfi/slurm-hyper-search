@@ -12,7 +12,7 @@ space = {
     'epoch': np.arange(5, 121, step=5),
     'minCount': [1, 2, 3, 4, 5],
     'wordNgrams': [1, 2, 3],
-    'minn': [3, 4, 5],
+    'minn': [2, 3, 4],
     'maxn': [5, 6, 7],
 }
 
