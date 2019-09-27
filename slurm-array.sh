@@ -23,7 +23,7 @@ if [ ! -f "$PARAMS_FILE" ]; then
 fi
 touch $SLURM_ID_FILE
 
-MODEL="${MODEL_DIR}/$1/${SLURM_ARRAY_TASK_ID}"
+MODEL="${MODEL_DIR}/$1-${SLURM_ARRAY_TASK_ID}"
 PARAMS=$(cat $PARAMS_FILE)
 
 set -xve
