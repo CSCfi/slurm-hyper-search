@@ -6,7 +6,7 @@
 #SBATCH --ntasks=1
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=12
-#SBATCH --mem=1G
+#SBATCH --mem=8G
 
 FASTTEXT=~/projappl/hpd/mvsjober/fastText/fasttext
 TRAIN_DATA=~/scratch/hpd/mvsjober/fasttext/yso-cicero-fasttext-train-10k.txt
