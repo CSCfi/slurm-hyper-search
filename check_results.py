@@ -44,6 +44,8 @@ def main(args):
 
     print('Best result so far: {} = {} in run {}.'.format(
         args.measure, results[best_n], best_n))
+    print('Best parameters:')
+    print(' ', open(os.path.join(out_dir, str(best_n), 'params')).read())
 
     if empty_results:
         print('WARNING: the following runs have empty results files:',
