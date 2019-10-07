@@ -6,7 +6,7 @@
 #SBATCH --ntasks=1
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=10
-#SBATCH --mem=16G
+#SBATCH --mem=32G
 
 OUTPUT_DIR="$1/${SLURM_ARRAY_TASK_ID}"
 PARAMS_FILE="${OUTPUT_DIR}/params"
