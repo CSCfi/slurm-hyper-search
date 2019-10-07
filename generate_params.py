@@ -48,7 +48,7 @@ def main(args):
         p_fname = os.path.join(p_dir, 'params')
         with open(p_fname, 'w') as fp:
             p_str = ' '.join(['-{} {}'.format(k, v) for k, v in p.items()])
-            fp.write(p_str)
+            fp.write(p_str + '\n')
         print('[{}]: {}'.format(p_dir, p_str))
 
 
