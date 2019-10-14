@@ -4,6 +4,7 @@ import argparse
 import os
 import pandas as pd
 import re
+import tqdm
 import sys
 
 from glob import glob
@@ -49,14 +50,13 @@ def main(args):
     results = {}
     best_n = None
     succeeded = 0
-    col_space = None
 
     out_dir = args.dir
     if not os.path.isdir(out_dir):
         print("ERROR: Directory {} doesn't exist!".format(out_dir))
         return 1
 
-    for n in os.listdir(out_dir):
+    for n in tqdm.tqdm(os.listdir(out_dir)[:20], desc='Processing'):
         if not n.isdigit():
             continue
         ni = int(n)
@@ -87,18 +87,22 @@ def main(args):
                 for line in fp:
                     m_name, m_value = line.split()
                     assert len(m_name) > 0
-                    res[m_name] = float(m_value)
+                    res[m_name] = int(m_value) if m_value.isdigit() else float(m_value)
                 if args.measure in res:
                     succeeded += 1
 
-                res['params'] = params
-
-                if col_space is None or len(params) > col_space:
-                    col_space = len(params)
-
+                pa = params.split()
+                for k, v in zip(pa[::2], pa[1::2]):
+                    if k[0] == '-':
+                        k = k[1:]
+                    res[k] = int(v) if v.isdigit() else float(v)
+                
                 results[ni] = res
 
     df = pd.DataFrame.from_dict(results, orient='index')
+    if args.output:
+        df.to_csv(args.output)
+        print('Wrote results to', args.output)
     if args.opt == 'max':
         dfs = df.nlargest(args.N, args.measure)
     else:
@@ -130,6 +134,7 @@ if __name__ == '__main__':
                         choices=['max', 'min'], default='max', required=False,
                         help='whether to minimize or maximize the measure')
     parser.add_argument('--verbose', action='store_true')
+    parser.add_argument('--output', '-O', type=str)
     args = parser.parse_args()
 
     sys.exit(main(args))
