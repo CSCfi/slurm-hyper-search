@@ -8,12 +8,21 @@
 #SBATCH --cpus-per-task=10
 #SBATCH --mem=32G
 
-OUTPUT_DIR="$1/${SLURM_ARRAY_TASK_ID}"
+PARAMS_OFFSET=$2
+
+if [ -z "$PARAMS_OFFSET" ]
+then
+    PARAMS_OFFSET=0
+fi
+PARAMS_ID=$(( $SLURM_ARRAY_TASK_ID + $PARAMS_OFFSET ))
+JOB_NAME="${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
+
+OUTPUT_DIR="$1/${PARAMS_ID}"
 PARAMS_FILE="${OUTPUT_DIR}/params"
 RESULTS_FILE="${OUTPUT_DIR}/results"
-MODEL_FILE="${OUTPUT_DIR}/${SLURM_ARRAY_JOB_ID}"
+MODEL_FILE="${OUTPUT_DIR}/${JOB_NAME}"
 
-touch "${OUTPUT_DIR}/slurm_id_${SLURM_ARRAY_JOB_ID}"
+touch "${OUTPUT_DIR}/slurm_id_${JOB_NAME}"
 
 if [ ! -f "$PARAMS_FILE" ]; then
     echo "ERROR: could not find parameter file $PARAMS_FILE"
