@@ -42,12 +42,6 @@ def print_warnings(res, msg, T):
 
 
 def main(args):
-    out_dir = args.dir
-
-    if not os.path.isdir(out_dir):
-        print("ERROR: Directory {} doesn't exist!".format(out_dir))
-        return 1
-
     T = 0
     no_results = set()
     nan_results = set()
@@ -57,6 +51,11 @@ def main(args):
     succeeded = 0
     col_space = None
 
+    out_dir = args.dir
+    if not os.path.isdir(out_dir):
+        print("ERROR: Directory {} doesn't exist!".format(out_dir))
+        return 1
+
     for n in os.listdir(out_dir):
         if not n.isdigit():
             continue
@@ -65,6 +64,8 @@ def main(args):
         ndir = os.path.join(out_dir, n)
         results_file = os.path.join(ndir, args.results)
         params_file = os.path.join(ndir, 'params')
+        # if args.verbose:
+        #     print('Processing', ndir)
         if not os.path.isfile(results_file):
             log_fname = get_logfile(ndir, ni)
             err = get_logerror(log_fname)
@@ -89,25 +90,13 @@ def main(args):
                     res[m_name] = float(m_value)
                 if args.measure in res:
                     succeeded += 1
-                    
+
                 res['params'] = params
-                
+
                 if col_space is None or len(params) > col_space:
                     col_space = len(params)
-                
+
                 results[ni] = res
-                    # if m_name == args.measure:
-                    #     succeeded += 1
-                    #     v = float(m_value)
-                        # results[ni] = v
-                        # if best_n is None:
-                        #     best_n = ni
-                        # else:
-                        #     bv = results[best_n]
-                        #     if args.opt == 'max' and v > bv:
-                        #         best_n = ni
-                        #     elif args.opt == 'min' and v < bv:
-                        #         best_n = ni
 
     df = pd.DataFrame.from_dict(results, orient='index')
     if args.opt == 'max':
@@ -130,7 +119,7 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser()
     parser.add_argument('dir', type=str,
-                        help='directory with parameter and results files')
+                        help='directory with parameters and results files')
     parser.add_argument('--results', type=str, default='results', required=False,
                         help='results file name')
     parser.add_argument('--measure', type=str, default='P@5', required=False,
