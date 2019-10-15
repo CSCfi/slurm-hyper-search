@@ -5,16 +5,25 @@ import os
 import pandas as pd
 import re
 import tqdm
+import subprocess
 import sys
 
 from glob import glob
 
-def get_logfile(ndir, ni):
-    run_ids = [int(x.split('_')[-1]) for x in
+def get_runid(ndir, ni):
+    run_ids = [x.split('_', maxsplit=2)[-1] for x in
                glob(os.path.join(ndir, 'slurm_id_*'))]
     if len(run_ids) > 0:
         last_run_id = sorted(run_ids)[-1]
-        run_log = 'slurm-{}_{}.out'.format(last_run_id, ni)
+        if '_' not in last_run_id:
+            ni %= 1000
+            last_run_id = '{}_{}'.format(last_run_id, ni)
+        return last_run_id
+    return None
+
+def get_logfile(run_id):
+    if run_id is not None:
+        run_log = 'slurm-{}.out'.format(run_id)
         if os.path.isfile(run_log):
             return run_log
     return None
@@ -42,6 +51,37 @@ def print_warnings(res, msg, T):
             print('WARNING: {}/{} = {:.2%} runs had {}. (Try --verbose to which runs.)'.format(n, T, n/T, msg))
 
 
+def add_slurm_info(run_id, res):
+    cmd = 'sacct -P -n -a --format JobID,State,ElapsedRaw,MaxRSS -j {}'.format(run_id)
+    out = subprocess.run(cmd.split(), capture_output=True, text=True)
+    out = [r.split('|') for r in out.stdout.split('\n')]
+    res['slurm:status'] = out[0][1]
+    res['slurm:elapsed_sec'] = int(out[0][2])
+
+    max_m = 0.0
+    for r in out:
+        if len(r) < 4:
+            continue
+
+        m = r[3]
+        if len(m) == 0:
+            continue
+
+        if m.isdigit():
+            m = float(m)
+        elif m[-1] == 'K':
+            m = float(m[:-1]) * 1024.0
+        elif m[-1] == 'M':
+            m = float(m[:-1]) * 1024.0 * 1024.0
+        elif m[-1] == 'G':
+            m = float(m[:-1]) * 1024.0 * 1024.0 * 1024.0
+        else:
+            assert False
+        if m > max_m:
+            max_m = m
+    res['slurm:mem_gb'] = max_m / 1024.0 / 1024.0 / 1024.0
+
+
 def main(args):
     T = 0
     no_results = set()
@@ -56,7 +96,7 @@ def main(args):
         print("ERROR: Directory {} doesn't exist!".format(out_dir))
         return 1
 
-    for n in tqdm.tqdm(os.listdir(out_dir)[:20], desc='Processing'):
+    for n in tqdm.tqdm(os.listdir(out_dir), desc='Processing'):
         if not n.isdigit():
             continue
         ni = int(n)
@@ -64,10 +104,9 @@ def main(args):
         ndir = os.path.join(out_dir, n)
         results_file = os.path.join(ndir, args.results)
         params_file = os.path.join(ndir, 'params')
-        # if args.verbose:
-        #     print('Processing', ndir)
+        run_id = get_runid(ndir, ni)
         if not os.path.isfile(results_file):
-            log_fname = get_logfile(ndir, ni)
+            log_fname = get_logfile(run_id)
             err = get_logerror(log_fname)
             if err is None:
                 no_results.add(ni)
@@ -97,8 +136,10 @@ def main(args):
                         k = k[1:]
                     res[k] = int(v) if v.isdigit() else float(v)
                 
+                if run_id is not None and args.slurm:
+                    add_slurm_info(run_id, res)
                 results[ni] = res
-
+                    
     df = pd.DataFrame.from_dict(results, orient='index')
     if args.output:
         df.to_csv(args.output)
@@ -135,6 +176,8 @@ if __name__ == '__main__':
                         help='whether to minimize or maximize the measure')
     parser.add_argument('--verbose', action='store_true')
     parser.add_argument('--output', '-O', type=str)
+    parser.add_argument('--slurm', action='store_true',
+                        help='whether to record slurm info like runtime and memory usage')
     args = parser.parse_args()
 
     sys.exit(main(args))

@@ -2,7 +2,7 @@
 #SBATCH --job-name=ft-train
 #SBATCH --account=project_2001825
 #SBATCH --partition=small
-#SBATCH --time=1-0
+#SBATCH --time=0-3
 #SBATCH --ntasks=1
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=10
