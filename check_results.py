@@ -10,6 +10,7 @@ import sys
 
 from glob import glob
 
+
 def get_runid(ndir, ni):
     run_ids = [x.split('_', maxsplit=2)[-1] for x in
                glob(os.path.join(ndir, 'slurm_id_*'))]
@@ -20,6 +21,7 @@ def get_runid(ndir, ni):
             last_run_id = '{}_{}'.format(last_run_id, ni)
         return last_run_id
     return None
+
 
 def get_logfile(run_id):
     if run_id is not None:
@@ -32,7 +34,7 @@ def get_logfile(run_id):
 def get_logerror(run_log):
     if run_log is None:
         return None
-    
+
     with open(run_log, 'r') as fp:
         for line in fp:
             m = re.search("terminate called after throwing an instance of '(.*)'", line)
@@ -48,7 +50,8 @@ def print_warnings(res, msg, T):
                   ','.join(sorted(str(x) for x in res)))
         else:
             n = len(res)
-            print('WARNING: {}/{} = {:.2%} runs had {}. (Try --verbose to which runs.)'.format(n, T, n/T, msg))
+            print('WARNING: {}/{} = {:.2%} runs had {}. (Try --verbose.)'.
+                  format(n, T, n/T, msg))
 
 
 def add_slurm_info(run_id, res):
@@ -88,7 +91,6 @@ def main(args):
     nan_results = set()
     empty_results = set()
     results = {}
-    best_n = None
     succeeded = 0
 
     out_dir = args.dir
@@ -135,11 +137,11 @@ def main(args):
                     if k[0] == '-':
                         k = k[1:]
                     res[k] = int(v) if v.isdigit() else float(v)
-                
+
                 if run_id is not None and args.slurm:
                     add_slurm_info(run_id, res)
                 results[ni] = res
-                    
+
     df = pd.DataFrame.from_dict(results, orient='index')
     if args.output:
         df.to_csv(args.output)
@@ -149,8 +151,8 @@ def main(args):
     else:
         dfs = df.nsmallest(args.N, args.measure)
 
-    print('Best {} results so far according to {} {} (out of {} succeeded runs).'.format(
-        args.N, args.opt, args.measure, succeeded))
+    print('Best {} results so far according to {} {} (out of {} succeeded).'.
+          format(args.N, args.opt, args.measure, succeeded))
     print(dfs)
 
     print()
@@ -161,15 +163,15 @@ def main(args):
 
 if __name__ == '__main__':
     pd.set_option("display.max_colwidth", 1000)
-    
+
     parser = argparse.ArgumentParser()
     parser.add_argument('dir', type=str,
                         help='directory with parameters and results files')
-    parser.add_argument('--results', type=str, default='results', required=False,
-                        help='results file name')
+    parser.add_argument('--results', type=str, default='results',
+                        required=False, help='results file name')
     parser.add_argument('--measure', type=str, default='P@5', required=False,
                         help='measure to optimize')
-    parser.add_argument('-N', type=int, default=5, 
+    parser.add_argument('-N', type=int, default=5,
                         help='number of top results to show')
     parser.add_argument('--opt', type=str,
                         choices=['max', 'min'], default='max', required=False,
@@ -177,7 +179,8 @@ if __name__ == '__main__':
     parser.add_argument('--verbose', action='store_true')
     parser.add_argument('--output', '-O', type=str)
     parser.add_argument('--slurm', action='store_true',
-                        help='whether to record slurm info like runtime and memory usage')
+                        help='enable recording slurm info '
+                        '(runtime, memory usage, etc.)')
     args = parser.parse_args()
 
     sys.exit(main(args))
