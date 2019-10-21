@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
 import argparse
+import itertools
 import os
 import pandas as pd
 import re
-import tqdm
 import subprocess
 import sys
+import tqdm
 
 from glob import glob
 
@@ -37,25 +38,30 @@ def get_logerror(run_log):
 
     with open(run_log, 'r') as fp:
         for line in fp:
-            m = re.search("terminate called after throwing an instance of '(.*)'", line)
+            m = re.search("terminate called after throwing an instance of "
+                          "'(.*)'", line)
             if m:
                 return m.group(1)
     return None
 
 
-def print_warnings(res, msg, T):
+def print_warnings(res, msg, num_dirs):
     if res:
         if args.verbose:
-            print('WARNING: the following runs have {}:'.format(msg),
-                  ','.join(sorted(str(x) for x in res)))
+            print('WARNING: the following runs have {}:'.format(msg))
+            for k, g in itertools.groupby(sorted(res), key=lambda x: x//1000):
+                offset = k*1000
+                print('[OFFSET: {}]'.format(offset), end=' ')
+                print(','.join(str(x-offset) for x in g))
         else:
             n = len(res)
             print('WARNING: {}/{} = {:.2%} runs had {}. (Try --verbose.)'.
-                  format(n, T, n/T, msg))
+                  format(n, num_dirs, n/num_dirs, msg))
 
 
 def add_slurm_info(run_id, res):
-    cmd = 'sacct -P -n -a --format JobID,State,ElapsedRaw,MaxRSS -j {}'.format(run_id)
+    cmd = 'sacct -P -n -a --format JobID,State,ElapsedRaw,MaxRSS -j {}'.format(
+        run_id)
     out = subprocess.run(cmd.split(), capture_output=True, text=True)
     out = [r.split('|') for r in out.stdout.split('\n')]
     res['slurm:status'] = out[0][1]
@@ -86,12 +92,12 @@ def add_slurm_info(run_id, res):
 
 
 def main(args):
-    T = 0
+    num_dirs = 0
     no_results = set()
     nan_results = set()
     empty_results = set()
     results = {}
-    succeeded = 0
+    testsets = set()
 
     out_dir = args.dir
     if not os.path.isdir(out_dir):
@@ -102,12 +108,13 @@ def main(args):
         if not n.isdigit():
             continue
         ni = int(n)
-        T += 1
+        num_dirs += 1
         ndir = os.path.join(out_dir, n)
-        results_file = os.path.join(ndir, args.results)
-        params_file = os.path.join(ndir, 'params')
+
         run_id = get_runid(ndir, ni)
-        if not os.path.isfile(results_file):
+        results_files = glob(os.path.join(ndir, 'results.*'))
+
+        if len(results_files) == 0:
             log_fname = get_logfile(run_id)
             err = get_logerror(log_fname)
             if err is None:
@@ -117,48 +124,76 @@ def main(args):
             else:
                 print('Unexpected error', err, log_fname)
                 no_results.add(ni)
-        elif os.path.getsize(results_file) == 0:
-            empty_results.add(ni)
-        else:
-            params = None
-            with open(params_file, 'r') as fp:
-                params = fp.read().rstrip()
+
+        res = {}
+        for results_file in results_files:
+            if os.path.getsize(results_file) == 0:
+                empty_results.add(ni)
+                continue
+
             with open(results_file, 'r') as fp:
-                res = {}
                 for line in fp:
                     m_name, m_value = line.split()
+                    if m_name == 'N':
+                        continue
                     assert len(m_name) > 0
-                    res[m_name] = int(m_value) if m_value.isdigit() else float(m_value)
-                if args.measure in res:
-                    succeeded += 1
+                    v = int(m_value) if m_value.isdigit() else float(m_value)
+                    # remove "results." from start
+                    testset = os.path.basename(results_file)[8:]
+                    testsets.add(testset)
+                    n = '{}:{}'.format(testset, m_name)
+                    res[n] = v
+                # assert args.measure in res
 
-                pa = params.split()
-                for k, v in zip(pa[::2], pa[1::2]):
-                    if k[0] == '-':
-                        k = k[1:]
-                    res[k] = int(v) if v.isdigit() else float(v)
+        # Add the run parameters to the current data row
+        params_file = os.path.join(ndir, 'params')
+        with open(params_file, 'r') as fp:
+            params = fp.read().rstrip()
+            pa = params.split()
+            for k, v in zip(pa[::2], pa[1::2]):
+                if k[0] == '-':
+                    k = k[1:]
+                res[k] = int(v) if v.isdigit() else float(v)
 
-                if run_id is not None and args.slurm:
-                    add_slurm_info(run_id, res)
-                results[ni] = res
+        if run_id is not None and args.slurm:
+            add_slurm_info(run_id, res)
+        results[ni] = res
 
     df = pd.DataFrame.from_dict(results, orient='index')
     if args.output:
         df.to_csv(args.output)
         print('Wrote results to', args.output)
-    if args.opt == 'max':
-        dfs = df.nlargest(args.N, args.measure)
-    else:
-        dfs = df.nsmallest(args.N, args.measure)
 
-    print('Best {} results so far according to {} {} (out of {} succeeded).'.
-          format(args.N, args.opt, args.measure, succeeded))
-    print(dfs)
+    columns = df.columns.to_numpy().tolist()
+    for testset in sorted(testsets):
+        print('***', testset)
 
-    print()
-    print_warnings(empty_results, 'empty results files', T)
-    print_warnings(no_results, 'no results files', T)
-    print_warnings(nan_results, 'NaN errors', T)
+        cols = []    # columns to show
+        rename = {}  # columns to rename (mapping)
+        for c in columns:
+            p = c.split(':')
+            if len(p) == 1:
+                cols.append(c)
+            # keep only those with matching testset as prefix, and
+            # rename them (to remove prefix)
+            if len(p) == 2 and p[0] == testset:
+                cols.append(c)
+                rename[c] = p[1]
+
+        m_name = '{}:{}'.format(testset, args.measure)
+        if args.opt == 'max':
+            dfs = df.nlargest(args.N, m_name)
+        else:
+            dfs = df.nsmallest(args.N, m_name)
+
+        print('Best {} results so far according to {} {}.'.format(
+            args.N, args.opt, args.measure))
+        print(dfs[cols].rename(columns=rename))
+        print()
+
+    print_warnings(empty_results, 'empty results files', num_dirs)
+    print_warnings(no_results, 'no results files', num_dirs)
+    print_warnings(nan_results, 'NaN errors', num_dirs)
 
 
 if __name__ == '__main__':
@@ -167,8 +202,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('dir', type=str,
                         help='directory with parameters and results files')
-    parser.add_argument('--results', type=str, default='results',
-                        required=False, help='results file name')
     parser.add_argument('--measure', type=str, default='P@5', required=False,
                         help='measure to optimize')
     parser.add_argument('-N', type=int, default=5,
