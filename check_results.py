@@ -99,6 +99,14 @@ def main(args):
     results = {}
     testsets = set()
 
+    range_min, range_max = None, None
+    if args.range is not None:
+        parts = args.range.split(',')
+        assert len(parts) == 2
+        range_min = int(parts[0]) if parts[0] != '' else None
+        range_max = int(parts[1]) if parts[1] != '' else None
+        print('Settings run id range: {}-{}'.format(range_min, range_max))
+
     out_dir = args.dir
     if not os.path.isdir(out_dir):
         print("ERROR: Directory {} doesn't exist!".format(out_dir))
@@ -108,11 +116,21 @@ def main(args):
         if not n.isdigit():
             continue
         ni = int(n)
+
+        # check ranges
+        if range_min is not None and ni < range_min:
+            continue
+        if range_max is not None and ni > range_max:
+            continue
+
         num_dirs += 1
         ndir = os.path.join(out_dir, n)
 
         run_id = get_runid(ndir, ni)
-        results_files = glob(os.path.join(ndir, 'results.*'))
+        if args.results_file is not None:
+            results_files = glob(os.path.join(ndir, '*'+args.results_file+'*'))
+        else:
+            results_files = glob(os.path.join(ndir, 'results.*'))
 
         if len(results_files) == 0:
             log_fname = get_logfile(run_id)
@@ -206,6 +224,12 @@ if __name__ == '__main__':
                         help='measure to optimize')
     parser.add_argument('-N', type=int, default=5,
                         help='number of top results to show')
+    parser.add_argument('--results_file', type=str, required=False,
+                        help='name of specific results file to check, '
+                        'default is to check all')
+    parser.add_argument('--range', type=str, required=False,
+                        help='range of run ids to check, e.g., '
+                        '"10,100" or ",1000"')
     parser.add_argument('--opt', type=str,
                         choices=['max', 'min'], default='max', required=False,
                         help='whether to minimize or maximize the measure')
