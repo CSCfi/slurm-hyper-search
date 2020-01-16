@@ -3,6 +3,7 @@
 import argparse
 import os
 import numpy as np
+from tqdm import tqdm
 
 from sklearn.model_selection import ParameterSampler
 
@@ -22,7 +23,7 @@ space = {
 #     'gamma': scipy.stats.expon(scale=.1),
 
 
-def main(args):
+def main_text(args):
     # directory structure:
     # args.dir/param-id/
     #                   params  -- parameters in form: -dim $dim -lr $lr ...
@@ -81,7 +82,8 @@ def main_sqlite(args):
     col_names = list(space.keys())
     cols = ["{} {}".format(n, sql_type(space[n])) for n in col_names]
     cmd = 'CREATE TABLE IF NOT EXISTS params ({})'.format(', '.join(cols))
-    print('[SQL]', cmd)
+    if args.verbose:
+        print('[SQL]', cmd)
     c.execute(cmd)
     conn.commit()
 
@@ -98,31 +100,56 @@ def main_sqlite(args):
     rng = np.random.RandomState(args.seed)
     ps = ParameterSampler(space, n_iter=args.n, random_state=rng)
 
-    for p in ps:
+    for p in tqdm(ps, disable=args.verbose):
         values = [sql_format(p[n]) for n in col_names]
         cmd = 'INSERT INTO params (rowid,{}) VALUES ({},{})'.format(
             ','.join(col_names), str(next_id), ','.join(values))
-        print('[SQL]', cmd)
+        if args.verbose:
+            print('[SQL]', cmd)
         c.execute(cmd)
         next_id += 1
     conn.commit()
     conn.close()
 
 
+def main_singletext(args):
+    n = 0
+    fn = args.output
+    if os.path.isfile(fn):
+        with open(fn, 'r') as fp:
+            for line in fp:
+                assert line[0] == '-'
+                n += 1
+        print('Found existing runs up to {}, starting from {}.'.
+              format(n, n+1))
+        n += 1
+
+    rng = np.random.RandomState(args.seed)
+    ps = ParameterSampler(space, n_iter=args.n, random_state=rng)
+
+    with open(fn, 'a') as fp:
+        for p in ps:
+            p_str = ' '.join(['-{} {}'.format(k, v) for k, v in p.items()])
+            fp.write(p_str + '\n')
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Generate a set of random hyper parameters')
     parser.add_argument('output', type=str,
-                        help='directory or (sqlite) file to keep parameter and results files')
+                        help='output file or directory (depending on format)')
     parser.add_argument('n', type=int,
                         help='number of hyper parameter sets to generate')
     parser.add_argument('--seed', type=int, default=None,
                         help='random seed for deterministic runs')
-    parser.add_argument('--sqlite', action='store_true',
-                        help='use sqlite')
+    parser.add_argument('--format', choices=['text', 'singletext', 'sqlite'],
+                        required=True)
+    parser.add_argument('--verbose', action='store_true')
 
     args = parser.parse_args()
-    if args.sqlite:
+    if args.format == 'sqlite':
         main_sqlite(args)
+    elif args.format == 'text':
+        main_text(args)
     else:
-        main(args)
+        main_singletext(args)

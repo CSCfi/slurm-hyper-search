@@ -28,7 +28,8 @@ def main(args):
 
     cmd = 'CREATE TABLE IF NOT EXISTS results ({})'.format(
         ', '.join(std_cols + cols))
-    print('[SQL]', cmd)
+    if args.verbose:
+        print('[SQL]', cmd)
     c.execute(cmd)
     conn.commit()
 
@@ -37,7 +38,8 @@ def main(args):
                  ','.join(res_names),
                  args.param_id, args.result_name, args.slurm_id,
                  ','.join(res_values))
-    print('[SQL]', cmd)
+    if args.verbose:
+        print('[SQL]', cmd)
     c.execute(cmd)
     conn.commit()
     conn.close()
@@ -51,6 +53,7 @@ if __name__ == '__main__':
     parser.add_argument('--slurm_id', type=str, help='job name', default=None)
     parser.add_argument('--result_name', type=str, default=None,
                         help='identifier for the result, e.g. test set name')
+    parser.add_argument('--verbose', action='store_true')
 
     args = parser.parse_args()
     main(args)

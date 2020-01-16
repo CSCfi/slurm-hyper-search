@@ -2,7 +2,7 @@
 #SBATCH --job-name=ft-train
 #SBATCH --account=project_2001825
 #SBATCH --partition=small
-#SBATCH --time=0-3
+#SBATCH --time=0-19
 #SBATCH --ntasks=1
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=10
@@ -32,7 +32,8 @@ fi
 PARAMS=$(cat $PARAMS_FILE)
 FASTTEXT=/projappl/project_2001825/mvsjober/fastText/fasttext
 TRAIN_DATA=/scratch/project_2001825/data/txt/yso-cicero-finna-fi-train-lc-voikko.txt
-TEST_DATA=$(ls /scratch/project_2001825/data/txt/*{validate,test}*txt)
+# TEST_DATA=$(ls /scratch/project_2001825/data/txt/*{validate,test}*txt)
+TEST_DATA=/scratch/project_2001825/data/txt/combined-fi-validate-lc-voikko.txt
 
 echo "*** TRAIN ***"
 (set -x
