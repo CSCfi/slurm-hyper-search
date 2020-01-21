@@ -68,13 +68,13 @@ At any time you can check what is the best run so far according to a specific me
 
     ./analyze_results.py test-1 P@5
 
-To check for failed runs:
+To rerun failed runs (e.g., if they ran out of memory and you are now requesting more), you get a list of failed runs (by line number) with the `--verbose` argument:
 
-    ./analyze_results.py test-1 --check_errors
+    ./analyze_results.py test-1 --verbose
+    
+It can also check the log files with `--log_dir path/to/log/files` to make a better analysis of the errors (you need to change the code here for your own case):
 
-To rerun failed runs (e.g., if they ran out of memory and you are now requesting more), you can first check for errors with the `--verbose` argument:
-
-    ./analyze_results.py test-1 --check_errors --verbose
+    ./analyze_results.py test-1 --verbose --log_dir logs/
 
 This will print a list of line numbers for the failed runs, which you can then copy and paste as array parameters to resubmit, e.g.:
 

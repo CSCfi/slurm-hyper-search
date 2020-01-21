@@ -5,7 +5,6 @@ import itertools
 import os
 import pandas as pd
 import re
-import sys
 from collections import defaultdict
 
 
@@ -45,6 +44,7 @@ def load_params(fn):
 
 def load_runlog(fn):
     if not os.path.isfile(fn):
+        print("WARNING: no runlog found at", fn)
         return None
 
     runlog = {}
@@ -60,21 +60,21 @@ def load_runlog(fn):
 
 
 def get_logerror(fn):
-    if os.path.isfile(fn):
-        with open(fn, 'r') as fp:
-            for line in fp:
-                m = re.search("terminate called after throwing an instance of "
-                              "'(.*)'", line)
-                if m:
-                    return m.group(1)
+    with open(fn, 'r') as fp:
+        for line in fp:
+            m = re.search("terminate called after throwing an instance of "
+                          "'(.*)'", line)
+            if m:
+                return m.group(1)
     return None
 
 
-def print_warnings(res, msg, num_dirs):
+def print_warnings(res, msg, num_dirs, verbose):
     if res:
-        if args.verbose:
+        if verbose:
             print('WARNING: the following runs have {}:'.format(msg))
-            for k, g in itertools.groupby(sorted(res), key=lambda x: x//1000):
+            for k, g in itertools.groupby(sorted(res),
+                                          key=lambda x: (x-1)//1000):
                 offset = k*1000
                 print('[OFFSET: {}]'.format(offset), end=' ')
                 print(','.join(str(x-offset) for x in g))
@@ -91,11 +91,12 @@ def main(args):
     results_fn = os.path.join(in_dir, 'results')
 
     res = load_results(results_fn)
-    if args.check_errors:
-        params_fn = os.path.join(in_dir, 'params')
-        param_ids = load_params(params_fn)
-
     print('Read {} which contained {} results.'.format(results_fn, len(res)))
+
+    params_fn = os.path.join(in_dir, 'params')
+    param_ids = load_params(params_fn)
+    print('Read {} which contained {} sets of parameters.'.format(
+        params_fn, len(param_ids)))
 
     testset_counts = defaultdict(int)  # testset => number of results
     params_counts = defaultdict(int)   # param_id => number of results
@@ -103,54 +104,56 @@ def main(args):
         testset_counts[r['result_name']] += 1
         params_counts[r['param_id']] += 1
 
-    if args.check_errors:
-        print('Results per testset:')
-        for k, v in testset_counts.items():
-            print(' ', k, v)
+    print('Results per testset:')
+    for k, v in testset_counts.items():
+        print(' ', k, v)
 
-        runlog_fn = os.path.join(in_dir, 'runlog')
-        runlog = load_runlog(runlog_fn)
+    runlog_fn = os.path.join(in_dir, 'runlog')
+    runlog = load_runlog(runlog_fn)
+    print('Read {} which contained data on {} runs.'.format(
+        runlog_fn, len(runlog)))
 
-        counts_lists = defaultdict(list)  # result cnt => list of param_ids
-        for p in param_ids:
-            counts_lists[params_counts[p]].append(p)
+    counts_lists = defaultdict(list)  # result cnt => list of param_ids
+    for p in param_ids:
+        counts_lists[params_counts[p]].append(p)
 
-        good_count = max(counts_lists.keys())
+    good_count = max(counts_lists.keys())
 
-        bad_runs = 0
-        no_results = set()
-        nan_results = set()
-        runlog_missing = set()
-        print('Runs with less than {} results:'.format(good_count))
-        for k, v in counts_lists.items():
-            if k != good_count:
-                bad_runs += len(v)
-                # print('  {}: {}'.format(k, ','.join([str(x) for x in v])))
-                if runlog is not None:
-                    for p in v:
-                        if p not in runlog:
-                            runlog_missing.add(p)
-                        else:
-                            rp = runlog[p]
-                            slurmlog_fn = os.path.join(
-                                rp['submit_dir'],
-                                'slurm-{}.out'.format(rp['slurm_id']))
-                            err = get_logerror(slurmlog_fn)
-                            if err is None:
-                                no_results.add(p)
-                            elif err == 'fasttext::DenseMatrix::EncounteredNaNError':
-                                nan_results.add(p)
-                            else:
-                                print('Unexpected error', err, slurmlog_fn)
-                                no_results.add(p)
+    bad_runs = 0
+    no_results = set()
+    nan_results = set()
+    runlog_missing = set()
+    for k, v in counts_lists.items():
+        if k == good_count:
+            continue
+        bad_runs += len(v)
+        for p in v:
+            if p not in runlog:
+                runlog_missing.add(p)
+            else:
+                rp = runlog[p]
+                err = None
+                if args.log_dir is not None:
+                    slurmlog_fn = os.path.join(
+                        args.log_dir,
+                        'slurm-{}.out'.format(rp['slurm_id']))
+                    err = get_logerror(slurmlog_fn)
+                if err is None:
+                    no_results.add(p)
+                elif err == 'fasttext::DenseMatrix::EncounteredNaNError':
+                    nan_results.add(p)
+                else:
+                    print('Unexpected error', err, slurmlog_fn)
+                    no_results.add(p)
 
         lp = len(param_ids)
         print('{} paramsets have missing runs out of {} ({:.2%})'.format(
             bad_runs, lp, bad_runs/lp))
 
-        print_warnings(runlog_missing, 'missing entry in runlog', lp)
-        print_warnings(no_results, 'no results files', lp)
-        print_warnings(nan_results, 'NaN errors', lp)
+        print_warnings(runlog_missing, 'no entry in runlog '
+                       '(probably not submitted yet)', lp, args.verbose)
+        print_warnings(no_results, 'no results files', lp, args.verbose)
+        print_warnings(nan_results, 'NaN errors', lp, args.verbose)
 
     testsets = testset_counts.keys()
     results.extend(res)
@@ -187,7 +190,8 @@ if __name__ == '__main__':
     parser.add_argument('--opt', type=str,
                         choices=['max', 'min'], default='max', required=False,
                         help='whether to minimize or maximize the measure')
-    parser.add_argument('--check_errors', action='store_true')
+    # parser.add_argument('--check_errors', action='store_true')
+    parser.add_argument('--log_dir', type=str)
     args = parser.parse_args()
 
     main(args)
