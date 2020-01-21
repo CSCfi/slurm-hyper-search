@@ -8,6 +8,8 @@
 #SBATCH --cpus-per-task=10
 #SBATCH --mem=16G
 
+TMPDIR=/scratch/project_2001825/tmp
+
 DB_FILE=$1
 PARAMS_OFFSET=$2
 

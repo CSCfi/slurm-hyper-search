@@ -28,6 +28,9 @@ fi
 PARAMS_ID=$(( $SLURM_ARRAY_TASK_ID + $PARAMS_OFFSET ))
 JOB_NAME="${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
 
+RUNLOG_FILE="${RESULTS_FILE}.runlog"
+echo "$PARAMS_ID|$JOB_NAME|$SLURM_SUBMIT_DIR" >> $RUNLOG_FILE
+
 MODEL_FILE=$(mktemp)
 PARAMS=$(tail -n +${PARAMS_ID} scratch/yso-2019-swe.params | head -n 1)
 FASTTEXT=/projappl/project_2001825/mvsjober/fastText/fasttext
