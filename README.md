@@ -1,21 +1,80 @@
-# Simple hyper-parameter generation for optimizing on Slurm-based HPC clusters
+# Simple hyper-parameter search for Slurm-based HPC clusters
 
-First, you need to modify the parameter generation in [`generate_params.py`](generate_params.py), and the slurm script in [`slurm-array.sh`](slurm-array.sh) for your particular case.
+This repository aims to provide a very light-weight and implementation agnostic template for running hyper-parameter optimization runs on a Slurm-based HPC cluster.  The main ideas:
+
+- **Random search for hyper-parameter optimization**: easy to implement and has been deemed as more efficient than grid search. See [*Random Search for Hyper-Parameter Optimization*, J. Bengstra and Y. Bengio, JMLR 13 (2012)](http://www.jmlr.org/papers/volume13/bergstra12a/bergstra12a.pdf).
+
+- **Implementation agnostic**: the training and evaluation programs are launched as shell commands and can thus be implemented in any programming language, the only requirement is that they take the parameters as command line arguments.
+
+- **HPC-friendly**: works by appending to a few big files, not producing thousands of small files which works inefficiently with distributed file systems like [Lustre](https://en.wikipedia.org/wiki/Lustre_(file_system)).
+
+- **Unix-philosophy**: based on human readable text files instead of binary files.
+
+The scripts provided in this repository happens to implement a particular scenario for text classification using fasttext and evaluating on several testsets.  You can use these as examples of how to implement your own scenario.
+
 
 ## Usage
 
-To generate a run called `test-1` with 10 random parameter sets:
+### Generate parameters
 
-    ./generate_params.py test-1 10
+First, you need to modify the parameter generation in [`generate_params.py`](generate_params.py).  Below are some examples of what you can do:
+
+```python
+space = {
+    'n: [1, 2, 3, 4, 5],                   # simply specify the possible parameters in a list
+    'dim': np.arange(50, 1001, step=10),   # use a numpy linear range
+    'lr': np.geomspace(0.01, 5, num=20),   # ... or log scale
+    'gamma': scipy.stats.expon(scale=.1),  # or specify a probability distribution with scipy
+}
+```
+
+To generate a set of runs called `test-1` with 100 random samples from the parameter space, run:
+
+    ./generate_params.py test-1 100
     
-It will create files like `test-1/N/params` where `N` is the parameter set index from 0 to 9.  If you run the same command again it will detect the existing files and continue from 10 onward.
+This will create a file `test-1/params` with 100 rows.  Each row corresponds to one random sample from the parameter space (specified in `generate_params.py`).  If you run the same command again it will concatenate the parameter file with 100 more random runs.
 
-To submit the 10 first runs to slurm:
+### Submit runs
 
-    sbatch -a 0-9 slurm-array.sh test-1
+First, you need to edit the [`run.sh`](run.sh) script for your particular case.  Typically it will run a training script with the given parameters, and then evaluate the results producing some evaluation measures.
+
+To submit the 10 first runs to slurm you can run:
+
+    sbatch -a 1-10 run.sh test-1
     
-At any time you can check what is the best run so far (it will also report missing and empty results files, which might indicate problems):
+The array parameter refers to the line number in the parameter file, so `-a 1-10` means running the 10 runs corresponding to the ten first lines from the parameter file.
 
-    ./check_results.py test-1 P@5
 
-The second argument is the measure you want to optimize.  The script assumes that the format of the results file is one measure per line, and the measure name and value are whitespace-separated.
+The `run.sh` script produces output to two files:
+
+- Before starting the run a line is appended to `test-1/runlog` with the following contents:
+
+    LINE_NUMBER|SLURM_ID|SLURM_SUBMIT_DIR
+    
+  This information is useful when later analysing failed runs.
+
+- At the end of the run one or more lines will be appended to `test-1/results` with content like this:
+
+    LINE_NUMBER|PARAMETERS|SLURM_ID|TESTSET_NAME|MEASURE_1|MEASURE_2|...|
+    
+The `run.sh` needs to take care of reading the output of the commands and format them into this single-line format.  For long running jobs it's best to store the output into a temporary file and append the final contents to `results` only at the very end.  This is to reduce the risk of several parallel jobs having opened the file for appending at the same time.
+
+
+
+### Analyze results and possible errors
+
+At any time you can check what is the best run so far according to a specific measure:
+
+    ./analyze_results.py test-1 P@5
+
+To check for failed runs:
+
+    ./analyze_results.py test-1 --check_errors
+
+To rerun failed runs (e.g., if they ran out of memory and you are now requesting more), you can first check for errors with the `--verbose` argument:
+
+    ./analyze_results.py test-1 --check_errors --verbose
+
+This will print a list of line numbers for the failed runs, which you can then copy and paste as array parameters to resubmit, e.g.:
+
+    sbatch -a 4,5,9 run.sh test-1
