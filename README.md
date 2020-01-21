@@ -49,17 +49,17 @@ The `run.sh` script produces output to two files:
 
 - Before starting the run a line is appended to `test-1/runlog` with the following contents:
 
-    LINE_NUMBER|SLURM_ID|SLURM_SUBMIT_DIR
-    
+      LINE_NUMBER|SLURM_ID|SLURM_SUBMIT_DIR
+  
   This information is useful when later analysing failed runs.
 
 - At the end of the run one or more lines will be appended to `test-1/results` with content like this:
 
-    LINE_NUMBER|PARAMETERS|SLURM_ID|TESTSET_NAME|MEASURE_1|MEASURE_2|...|
+      LINE_NUMBER|PARAMETERS|SLURM_ID|TESTSET_NAME|MEASURE_1|MEASURE_2|...|
     
 The `run.sh` needs to take care of reading the output of the commands and format them into this single-line format.  For long running jobs it's best to store the output into a temporary file and append the final contents to `results` only at the very end.  This is to reduce the risk of several parallel jobs having opened the file for appending at the same time.
 
-**Note:** this design assumes that appending to a file (for example the `results` file) works concurrently, i.e., that you can append from multiple processes without any corruption of the file.  This [*should* be the case](https://nullprogram.com/blog/2016/08/03/) if the filesystem is [POSIX-compatible](https://pubs.opengroup.org/onlinepubs/9699919799/functions/write.html).
+**Note:** this design assumes that appending to a file (for example the `results` file) works concurrently, i.e., that you can append from multiple programs without any corruption of the file.  This [*should* be the case](https://nullprogram.com/blog/2016/08/03/) if the filesystem is [POSIX-compatible](https://pubs.opengroup.org/onlinepubs/9699919799/functions/write.html), and in particular should be the case for Lustre.
 
 
 ### Analyze results and possible errors
