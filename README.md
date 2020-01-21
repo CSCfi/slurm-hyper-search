@@ -59,6 +59,7 @@ The `run.sh` script produces output to two files:
     
 The `run.sh` needs to take care of reading the output of the commands and format them into this single-line format.  For long running jobs it's best to store the output into a temporary file and append the final contents to `results` only at the very end.  This is to reduce the risk of several parallel jobs having opened the file for appending at the same time.
 
+**Note:** this design assumes that appending to a file (for example the `results` file) works concurrently, i.e., that you can append from multiple processes without any corruption of the file.  This [*should* be the case](https://nullprogram.com/blog/2016/08/03/) if the filesystem is [POSIX-compatible](https://pubs.opengroup.org/onlinepubs/9699919799/functions/write.html).
 
 
 ### Analyze results and possible errors
