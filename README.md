@@ -36,7 +36,7 @@ This will create a file `test-1/params` with 100 rows.  Each row corresponds to 
 
 ### Submit runs
 
-First, you need to edit the [`run.sh`](run.sh) script for your particular case.  Typically it will run a training script with the given parameters, and then evaluate the results producing some evaluation measures.
+First, you need to edit the [`run-example.sh`](run-example.sh) script for your particular case.  Typically it will run a training script with the given parameters, and then evaluate the results producing some evaluation measures.  In the following, we assume that you call the edited file `run.sh`.
 
 To submit the 10 first runs to slurm you can run:
 
