@@ -66,16 +66,12 @@ The `run.sh` needs to take care of reading the output of the commands and format
 
 At any time you can check what is the best run so far according to a specific measure:
 
-    ./analyze_results.py test-1 P@5
+    ./analyze_results.py test-1 --measure P@5
 
-To rerun failed runs (e.g., if they ran out of memory and you are now requesting more), you get a list of failed runs (by line number) with the `--verbose` argument:
+To check for errors and missing runs you can try:
 
-    ./analyze_results.py test-1 --verbose
+    ./check_status.py test-1 --log_dir logs/
     
-It can also check the log files with `--log_dir path/to/log/files` to make a better analysis of the errors (you need to change the code here for your own case):
-
-    ./analyze_results.py test-1 --verbose --log_dir logs/
-
-This will print a list of line numbers for the failed runs, which you can then copy and paste as array parameters to resubmit, e.g.:
+This command will also try to analyze the slurm logs (you might need to change the code here for your own case).  The command will also print a list of line numbers for the failed runs, which you can then copy and paste as array parameters to resubmit, e.g.:
 
     sbatch -a 4,5,9 run.sh test-1

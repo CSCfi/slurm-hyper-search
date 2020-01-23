@@ -35,16 +35,18 @@ JOB_NAME="${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
 echo "$PARAMS_ID|$JOB_NAME|$SLURM_SUBMIT_DIR" >> $RUNLOG_FILE
 
 MODEL_FILE=$(mktemp)
-PARAMS=$(tail -n +${PARAMS_ID} scratch/yso-2019-swe.params | head -n 1)
+PARAMS=$(tail -n +${PARAMS_ID} ${PARAMS_FILE} | head -n 1)
 
 FASTTEXT=/projappl/project_2001825/mvsjober/fastText/fasttext
 
 #TRAIN_DATA=/scratch/project_2001825/data/txt/yso-cicero-finna-fi-train-lc-voikko.txt
-TRAIN_DATA=/scratch/project_2001825/data/txt/yso-cicero-finna-sv.tsv.txt
+#TRAIN_DATA=/scratch/project_2001825/data/txt/yso-cicero-finna-sv.tsv.txt
+TRAIN_DATA=/scratch/project_2001825/data/txt/yso-cicero-finna-sv.tsv-stem.txt
 
 # TEST_DATA=$(ls /scratch/project_2001825/data/txt/*{validate,test}*txt)
 # TEST_DATA=/scratch/project_2001825/data/txt/combined-fi-validate-lc-voikko.txt
-TEST_DATA=$(ls /scratch/project_2001825/data/txt/{jyu-theses-swe,kirjaesittelyt-yso-swe-all,varia-corpus-sv-all,swe-combined-valid,swe-combined-test}.txt)
+#TEST_DATA=$(ls /scratch/project_2001825/data/txt/{jyu-theses-swe,kirjaesittelyt-yso-swe-all,varia-corpus-sv-all,swe-combined-valid,swe-combined-test}.txt)
+TEST_DATA=$(ls /scratch/project_2001825/data/txt/{jyu-theses-swe,kirjaesittelyt-yso-swe-all,varia-corpus-sv-all,swe-combined-valid,swe-combined-test}-stem.txt)
 
 echo "*** TRAIN ***"
 (set -x
