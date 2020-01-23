@@ -2,9 +2,11 @@
 
 from collections import defaultdict
 import argparse
+import datetime
 import itertools
 import os
 import re
+import subprocess
 
 
 def load_results(fn):
@@ -58,6 +60,61 @@ def load_runlog(fn):
     return runlog
 
 
+def parse_mem(s):
+    if not s:
+        return 0
+    if s.isnumeric():
+        return float(s)
+    val = float(s[:-1])
+    ch = s[-1]
+    if ch == 'K':
+        return val*1024
+    elif ch == 'M':
+        return val*1024*1024
+    elif ch == 'G':
+        return val*1024*1024*1024
+
+
+def load_slurm_data(slurm_ids):
+    cmd = ['sacct', '-P', '-n', '--format', 'JobId,State,ElapsedRaw,MaxRSS',
+           '-j', ','.join(slurm_ids)]
+
+    res = subprocess.run(cmd, stdout=subprocess.PIPE)
+    output = res.stdout.decode('utf-8')
+
+    data = {}
+    max_maxrss = 0
+    max_elapsed = 0
+    for line in output.split('\n'):
+        if line == '':
+            continue
+        parts = line.split('|')
+
+        slurm_id = parts[0].split('.', 1)[0]  # e.g. 850049_1.3 => 850049_1
+
+        elapsed = int(parts[2]) if len(parts[2]) > 0 else 0
+        maxrss = parse_mem(parts[3])
+
+        if slurm_id not in data:
+            data[slurm_id] = {
+                'status': parts[1],
+                'elapsed': elapsed,
+                'maxrss': maxrss
+            }
+        else:
+            if elapsed > data[slurm_id]['elapsed']:
+                data[slurm_id]['elapsed'] = elapsed
+            if maxrss > data[slurm_id]['maxrss']:
+                data[slurm_id]['maxrss'] = maxrss
+
+        if elapsed > max_elapsed:
+            max_elapsed = elapsed
+        if maxrss > max_maxrss:
+            max_maxrss = maxrss
+
+    return data, max_elapsed, max_maxrss
+
+
 def get_logerror(fn):
     if not os.path.isfile(fn):
         print('WARNING: could not find log file {}!  Try specifying --log_dir,'
@@ -85,6 +142,18 @@ def print_warnings(res, msg, tot):
             print(','.join(str(x-offset) for x in g))
 
 
+def format_mem(num):
+    for unit in ['', 'K', 'M', 'G']:
+        if num < 1024.0:
+            return "{:.4} {}".format(num, unit)
+        num /= 1024.0
+    return "{:.4} T".format(num)
+
+
+def format_time(secs):
+    return datetime.timedelta(seconds=secs)
+
+
 def main(args):
     in_dir = args.input
 
@@ -108,9 +177,15 @@ def main(args):
 
     params_results = defaultdict(list)  # dict: param_id -> list of results
     testsets = set()
+    slurm_main_ids = set()
     for r in results:
         params_results[r['param_id']].append(r)
         testsets.add(r['result_name'])
+        slurm_main_ids.add(r['slurm_id'].split('_', 1)[0])
+
+    if not args.skip_slurm:
+        # FIXME: used slurm_data[slurm_id]['status'] for something...
+        _, max_elapsed, max_maxrss = load_slurm_data(slurm_main_ids)
 
     # params_without_runs = set(param_ids.copy())
     params_runs = defaultdict(list)  # dict: param_id -> list of runs
@@ -159,6 +234,11 @@ def main(args):
     print_warnings(pids_with_nan_errors, 'NaN errors', N)
     print_warnings(pids_with_unknown_errors, 'unknown errors', N)
 
+    if not args.skip_slurm:
+        print()
+        print('Max RSS:', format_mem(max_maxrss))
+        print('Max elapsed:', format_time(max_elapsed))
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -166,6 +246,7 @@ if __name__ == '__main__':
                         help='directory with the results file')
     parser.add_argument('--log_dir', type=str, default='./')
     parser.add_argument('--skip_logs', action='store_true')
+    parser.add_argument('--skip_slurm', action='store_true')
     args = parser.parse_args()
 
     main(args)
