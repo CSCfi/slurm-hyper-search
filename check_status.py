@@ -130,6 +130,20 @@ def get_logerror(fn):
     return None
 
 
+def indices_to_str(ids):
+    ids = list(ids)
+    to_print = []
+    range_start = 0
+    for i in range(1, len(ids)+1):
+        if i == len(ids) or ids[i] != ids[i-1]+1:
+            if range_start < i-1:
+                to_print.append('{}-{}'.format(ids[range_start], ids[i-1]))
+            else:
+                to_print.append(str(ids[i-1]))
+            range_start = i
+    return ','.join(to_print)
+
+
 def print_warnings(res, msg, tot):
     if res:
         n = len(res)
@@ -139,7 +153,8 @@ def print_warnings(res, msg, tot):
                                       key=lambda x: (x-1)//1000):
             offset = k*1000
             print('[OFFSET: {}]'.format(offset), end=' ')
-            print(','.join(str(x-offset) for x in g))
+            #print(','.join(str(x-offset) for x in g))
+            print(indices_to_str(x-offset for x in g))
 
 
 def format_mem(num):
@@ -183,11 +198,15 @@ def main(args):
         testsets.add(r['result_name'])
         slurm_main_ids.add(r['slurm_id'].split('_', 1)[0])
 
+    error_statuses = {}  # dict: slurm_id -> error status
     if not args.skip_slurm:
         # FIXME: used slurm_data[slurm_id]['status'] for something...
-        _, max_elapsed, max_maxrss = load_slurm_data(slurm_main_ids)
+        slurm_data, max_elapsed, max_maxrss = load_slurm_data(slurm_main_ids)
+        for slurm_id, data in slurm_data.items():
+            s = data['status']
+            if s != 'COMPLETED':
+                error_statuses[slurm_id] = s
 
-    # params_without_runs = set(param_ids.copy())
     params_runs = defaultdict(list)  # dict: param_id -> list of runs
     for r in runlog:
         params_runs[r['param_id']].append(r)
@@ -195,6 +214,7 @@ def main(args):
     pids_with_unknown_errors = []
     pids_with_nan_errors = []
     pids_without_runs = []
+    pids_with_error_status = defaultdict(list)  # dict: error status -> pids
     for pid in param_ids:
         res = params_results[pid]
         if len(res) == 0:
@@ -204,8 +224,8 @@ def main(args):
             else:
                 slurm_ids = [r['slurm_id'] for r in runs]
                 if len(runs) > 1:
-                    print('WARNING: paramset {} has more than one run: ',
-                          ', '.join(slurm_ids))
+                    print('WARNING: paramset {} has more than one run: '.
+                          format(pid), ', '.join(slurm_ids))
                 slurm_id = slurm_ids[-1]
 
                 if args.skip_logs:
@@ -216,22 +236,31 @@ def main(args):
                     err = get_logerror(slurmlog_fn)
                     if err == 'fasttext::DenseMatrix::EncounteredNaNError':
                         pids_with_nan_errors.append(pid)
+                    elif slurm_id in error_statuses:
+                        pids_with_error_status[error_statuses[slurm_id]].append(pid)
                     else:
                         pids_with_unknown_errors.append(pid)
                         if err is not None:
                             print('WARNING: Unknown error', err, slurmlog_fn)
         else:  # len(res) > 0
+            slurm_ids = set([r['slurm_id'] for r in res])
             pid_testsets = [r['result_name'] for r in res]
             pid_testsets_set = set(pid_testsets)
             if pid_testsets_set != testsets:
-                print('WARNING: paramset {} is missing some results:'.format(
-                    pid), pid_testsets_set)
+                print('WARNING: paramset {} ({}) is missing some results:'.
+                      format(pid, ','.join(slurm_ids)),
+                      ','.join(pid_testsets_set))
+                for sid in slurm_ids:
+                    if sid in error_statuses:
+                        pids_with_error_status[error_statuses[sid]].append(pid)
             elif len(pid_testsets) != len(testsets):
                 print('WARNING: paramset {} has wrong number of results: {}'.
                       format(pid, len(pid_testsets)))
 
     print_warnings(pids_without_runs, 'no runs', N)
     print_warnings(pids_with_nan_errors, 'NaN errors', N)
+    for error_status, pids in pids_with_error_status.items():
+        print_warnings(pids, 'have {} status'.format(error_status), N)
     print_warnings(pids_with_unknown_errors, 'unknown errors', N)
 
     if not args.skip_slurm:
