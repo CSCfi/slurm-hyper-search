@@ -17,7 +17,7 @@ The scripts provided in this repository happens to implement a particular scenar
 
 ### Generate parameters
 
-First, you need to modify the parameter generation in [`generate_params.py`](generate_params.py).  Below are some examples of what you can do:
+First, you need to create a file `space_conf.py` specifying the parameter space, you can use [`space_conf.py.example`](space_conf.py.example) as a staring point.  Below are some examples of what you can do:
 
 ```python
 space = {
@@ -33,6 +33,14 @@ To generate a set of runs called `test-1` with 100 random samples from the param
     ./generate_params.py test-1 100
     
 This will create a file `test-1/params` with 100 rows.  Each row corresponds to one random sample from the parameter space (specified in `generate_params.py`).  If you run the same command again it will concatenate the parameter file with 100 more random runs.
+
+For a small parameter space it might make sense to generate all combinations (this will naturally not work if you are using probability distributions):
+
+    ./generate_params.py test-1 all
+
+By default the arguments are generated in GNU long format, e.g. `--dim=50 --lr=0.01`.  You can modify the formatting with the `--format` argument, e.g.:
+
+    ./generate_params.py test-1 100 --format='-{name} {value}'
 
 ### Submit runs
 

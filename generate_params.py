@@ -3,23 +3,9 @@
 import argparse
 import os
 import numpy as np
+from sklearn.model_selection import ParameterSampler, ParameterGrid
 
-from sklearn.model_selection import ParameterSampler
-
-space = {
-    'dim': np.arange(50, 1001, step=10),
-    'lr': np.around(np.geomspace(0.01, 5, num=20), decimals=6),
-    'epoch': np.arange(5, 121, step=5),
-    'minCount': [1, 2, 3, 4, 5],
-    'wordNgrams': [1, 2, 3],
-    'minn': [2, 3, 4],
-    'maxn': [5, 6, 7],
-}
-
-# Note: you can also specify probability distributions, e.g.,
-# import scipy
-#     'C': scipy.stats.expon(scale=100),
-#     'gamma': scipy.stats.expon(scale=.1),
+from space_conf import space
 
 
 def main(args):
@@ -28,25 +14,32 @@ def main(args):
 
     fn = os.path.join(out_dir, 'params')
 
-    rng = np.random.RandomState(args.seed)
-    ps = ParameterSampler(space, n_iter=args.n, random_state=rng)
+    if args.n.lower() == 'all':
+        ps = ParameterGrid(space)
+    else:
+        n = int(args.n)
+        rng = np.random.RandomState(args.seed)
+        ps = ParameterSampler(space, n_iter=n, random_state=rng)
 
     with open(fn, 'a') as fp:
         for p in ps:
-            p_str = ' '.join(['-{} {}'.format(k, v) for k, v in p.items()])
+            p_str = ' '.join([args.format.format(name=k, value=v) for k, v in p.items()])
             fp.write(p_str + '\n')
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description='Generate a set of random hyper parameters')
+        description='Generate a set of hyper parameters')
     parser.add_argument('output', type=str,
                         help='output directory')
-    parser.add_argument('n', type=int,
-                        help='number of hyper parameter sets to generate')
+    parser.add_argument('n', type=str,
+                        help='random search: number of hyper parameter sets '
+                        'to sample, for grid search: set to "all"')
     parser.add_argument('--seed', type=int, default=None,
                         help='random seed for deterministic runs')
-    parser.add_argument('--verbose', action='store_true')
+    parser.add_argument('--format', type=str, default='--{name}={value}',
+                        help='format for parameter arguments, default is '
+                        '--{name}={value}')
 
     args = parser.parse_args()
     main(args)
