@@ -4,29 +4,7 @@ import argparse
 import os
 import pandas as pd
 
-
-def load_results(fn):
-    results = []
-    with open(fn, 'r') as fp:
-        for line in fp:
-            parts = line.rstrip().split('|')
-            r = {
-                'param_id': int(parts[0]),
-                'slurm_id': parts[2],
-                'result_name': parts[3]
-            }
-            for p in parts[1].split('-'):
-                if len(p) > 0:
-                    n, v = p.rstrip().split()
-                    v = int(v) if v.isdigit() else float(v)
-                    r[n] = v
-            for p in parts[4:]:
-                if len(p) > 0:
-                    n, v = p.split()
-                    v = int(v) if v.isdigit() else float(v)
-                    r[n] = v
-            results.append(r)
-    return results
+from check_status import load_results
 
 
 def main(args):
@@ -35,7 +13,7 @@ def main(args):
     results = []
     results_fn = os.path.join(in_dir, 'results')
 
-    results = load_results(results_fn)
+    results = load_results(results_fn, args.measures)
     print('Read {} which contained {} results.'.format(
         results_fn, len(results)))
 
@@ -71,6 +49,9 @@ if __name__ == '__main__':
     parser.add_argument('--opt', type=str,
                         choices=['max', 'min'], default='max', required=False,
                         help='whether to minimize or maximize the measure')
+    parser.add_argument('--measures', type=str,
+                        help='names of measures if missing from results, '
+                        'e.g., --measures=P@1,P@3,P@5')
     args = parser.parse_args()
 
     main(args)

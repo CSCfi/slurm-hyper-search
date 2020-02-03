@@ -7,12 +7,17 @@ import itertools
 import os
 import re
 import subprocess
+import sys
 
 
-def load_results(fn):
+def load_results(fn, measures=None):
     results = []
+    if measures:
+        measures = measures.split(',')
+
     with open(fn, 'r') as fp:
         for line in fp:
+            m_idx = 0
             parts = line.rstrip().split('|')
             r = {
                 'param_id': int(parts[0]),
@@ -22,11 +27,30 @@ def load_results(fn):
             for p in parts[1].split('-'):
                 if len(p) > 0:
                     n, v = p.rstrip().split()
-                    v = int(v) if v.isdigit() else float(v)
+                    if v.isdigit():
+                        v = int(v)
+                    else:
+                        try:
+                            v = float(v)
+                        except ValueError:
+                            pass
                     r[n] = v
             for p in parts[4:]:
                 if len(p) > 0:
-                    n, v = p.split()
+                    pp = p.split()
+                    if len(pp) == 1:
+                        if not measures:
+                            print('ERROR: measure {} has no name in {}, '
+                                  'please specify with --measures '
+                                  'argument'.format(p, fn))
+                            print(' LINE:', line)
+                            sys.exit(1)
+                        n = measures[m_idx]
+                        v = pp[0]
+                        m_idx += 1
+                    else:
+                        n, v = pp
+
                     v = int(v) if v.isdigit() else float(v)
                     r[n] = v
             results.append(r)
@@ -186,7 +210,7 @@ def main(args):
     results = []
     results_fn = os.path.join(in_dir, 'results')
 
-    results = load_results(results_fn)
+    results = load_results(results_fn, args.measures)
     print('Read {} which contained {} results.'.format(results_fn,
                                                        len(results)))
 
@@ -276,6 +300,9 @@ if __name__ == '__main__':
     parser.add_argument('--log_dir', type=str, default='./')
     parser.add_argument('--skip_logs', action='store_true')
     parser.add_argument('--skip_slurm', action='store_true')
+    parser.add_argument('--measures', type=str,
+                        help='names of measures if missing from results, '
+                        'e.g., --measures=P@1,P@3,P@5')
     args = parser.parse_args()
 
     main(args)
