@@ -5,6 +5,7 @@ import os
 import pandas as pd
 
 from check_status import load_results
+from functools import reduce
 
 
 def main(args):
@@ -23,8 +24,10 @@ def main(args):
         df.to_csv(args.output)
         print('Wrote results to', args.output)
 
+    best_per_testset = {}
     for testset in sorted(df.result_name.unique()):
-        dft = df[df['result_name'] == testset]
+        idx = df['result_name'] == testset
+        dft = df[idx]
         print()
         print('# {}, {} results'.format(testset, len(dft)))
 
@@ -34,7 +37,33 @@ def main(args):
             dfs = dft.nlargest(args.N, args.meas)
         else:
             dfs = dft.nsmallest(args.N, args.meas)
+        best = dfs.iloc[0][args.meas]
+        best_per_testset[testset] = best
+
         print(dfs.drop(columns='result_name'))
+
+    if args.overall_score:
+        def aggregate_results(x):
+            xm = x.mean()
+            v = {}
+            for index, row in x.iterrows():
+                rn = row['result_name']
+                v[rn] = row[args.meas]/best_per_testset[rn]
+
+            xm['overall_score'] = reduce(lambda x, y: x * y, v.values())
+            return xm.drop(columns='slurm_id')
+
+        assert args.opt == 'max', 'min not implemented yet :-)'
+        print()
+        print('# Best overall score.')
+        res = df.groupby(['param_id']).apply(aggregate_results)
+        ress = res.nlargest(args.N, 'overall_score')
+        print(ress)
+
+        print()
+        print('# Individual results for the best one')
+        best_param_id = ress.iloc[0]['param_id']
+        print(df[df['param_id'] == best_param_id])
 
 
 if __name__ == '__main__':
@@ -52,6 +81,7 @@ if __name__ == '__main__':
     parser.add_argument('--measures', type=str,
                         help='names of measures if missing from results, '
                         'e.g., --measures=P@1,P@3,P@5')
+    parser.add_argument('--overall_score', action='store_true')
     args = parser.parse_args()
 
     main(args)
