@@ -26,14 +26,19 @@ def load_results(fn, measures=None):
             }
             for p in parts[1].split('-'):
                 if len(p) > 0:
-                    n, v = p.rstrip().split()
-                    if v.isdigit():
-                        v = int(v)
+                    pp = p.rstrip().split()
+                    if len(pp) == 1:
+                        n = pp[0]
+                        v = None
                     else:
-                        try:
-                            v = float(v)
-                        except ValueError:
-                            pass
+                        n, v = pp
+                        if v.isdigit():
+                            v = int(v)
+                        else:
+                            try:
+                                v = float(v)
+                            except ValueError:
+                                pass
                     r[n] = v
             for p in parts[4:]:
                 if len(p) > 0:
@@ -171,7 +176,7 @@ def indices_to_str(ids):
 def print_warnings(res, msg, tot):
     if res:
         n = len(res)
-        print('WARNING: the following param indices have {}, '
+        print('WARNING: the following param indices {}, '
               '{}/{} = {:.2%}:'.format(msg, n, tot, n/tot))
         for k, g in itertools.groupby(sorted(res),
                                       key=lambda x: (x-1)//1000):
