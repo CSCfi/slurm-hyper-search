@@ -24,6 +24,8 @@ def main(args):
     with open(fn, 'a') as fp:
         for p in ps:
             p_str = ' '.join([args.format.format(name=k, value=v) for k, v in p.items()])
+            if args.extra:
+                p_str = args.extra + ' ' + p_str
             fp.write(p_str + '\n')
 
 
@@ -40,6 +42,7 @@ if __name__ == '__main__':
     parser.add_argument('--format', type=str, default='--{name}={value}',
                         help='format for parameter arguments, default is '
                         '--{name}={value}')
+    parser.add_argument('--extra', type=str, help='Extra arguments to add')
 
     args = parser.parse_args()
     main(args)
