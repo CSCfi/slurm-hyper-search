@@ -241,7 +241,7 @@ def main(args):
         if args.time_histogram:
             N = len(times)
             print('Elapsed times (histogram):')
-            bins = list(range(0, int(max_elapsed), 600))
+            bins = list(range(0, int(max_elapsed), args.time_histogram*60))
             bins[-1] = max_elapsed
             hist, bin_edges = np.histogram(times, bins=bins)
             cum = 0.0
@@ -323,7 +323,7 @@ if __name__ == '__main__':
     parser.add_argument('--log_dir', type=str, default='./')
     parser.add_argument('--skip_logs', action='store_true')
     parser.add_argument('--skip_slurm', action='store_true')
-    parser.add_argument('--time_histogram', action='store_true')
+    parser.add_argument('--time_histogram', type=int)
     parser.add_argument('--measures', type=str,
                         help='names of measures if missing from results, '
                         'e.g., --measures=P@1,P@3,P@5')
