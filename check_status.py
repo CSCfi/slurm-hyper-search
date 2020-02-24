@@ -4,6 +4,7 @@ from collections import defaultdict
 import argparse
 import datetime
 import itertools
+import numpy as np
 import os
 import re
 import subprocess
@@ -190,7 +191,7 @@ def format_mem(num):
 
 
 def format_time(secs):
-    return datetime.timedelta(seconds=secs)
+    return datetime.timedelta(seconds=float(secs))
 
 
 def main(args):
@@ -200,7 +201,6 @@ def main(args):
     param_ids = load_params(params_fn)
     print('Read {} which contained {} sets of parameters.'.format(
         params_fn, len(param_ids)))
-    N = len(param_ids)
 
     runlog_fn = os.path.join(in_dir, 'runlog')
     runlog = load_runlog(runlog_fn)
@@ -226,10 +226,27 @@ def main(args):
     if not args.skip_slurm:
         # FIXME: used slurm_data[slurm_id]['status'] for something...
         slurm_data, max_elapsed, max_maxrss = load_slurm_data(slurm_main_ids)
+        times = []
         for slurm_id, data in slurm_data.items():
             s = data['status']
             if s != 'COMPLETED':
                 error_statuses[slurm_id] = s
+            times.append(data['elapsed'])
+
+        if args.time_histogram:
+            N = len(times)
+            print('Elapsed times (histogram):')
+            bins = list(range(0, int(max_elapsed), 600))
+            bins[-1] = max_elapsed
+            hist, bin_edges = np.histogram(times, bins=bins)
+            cum = 0.0
+            for i, c in enumerate(hist):
+                bl = int(c/N*100)
+                cum += c
+                print(' [{} - {}]: {:7.2%} ({:7.2%}) {}'.format(
+                    format_time(bin_edges[i]),
+                    format_time(bin_edges[i+1]),
+                    c/N, cum/N, '*' * bl))
 
     params_runs = defaultdict(list)  # dict: param_id -> list of runs
     for r in runlog:
@@ -281,6 +298,7 @@ def main(args):
                 print('WARNING: paramset {} has wrong number of results: {}'.
                       format(pid, len(pid_testsets)))
 
+    N = len(param_ids)
     print_warnings(pids_without_runs, 'no runs', N)
     print_warnings(pids_with_nan_errors, 'NaN errors', N)
     for error_status, pids in pids_with_error_status.items():
@@ -300,6 +318,7 @@ if __name__ == '__main__':
     parser.add_argument('--log_dir', type=str, default='./')
     parser.add_argument('--skip_logs', action='store_true')
     parser.add_argument('--skip_slurm', action='store_true')
+    parser.add_argument('--time_histogram', action='store_true')
     parser.add_argument('--measures', type=str,
                         help='names of measures if missing from results, '
                         'e.g., --measures=P@1,P@3,P@5')
