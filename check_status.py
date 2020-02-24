@@ -252,6 +252,8 @@ def main(args):
                     format_time(bin_edges[i]),
                     format_time(bin_edges[i+1]),
                     c/N, cum/N, '*' * bl))
+            print('Average elapsed time: {}'.format(
+                format_time(np.mean(times))))
 
     params_runs = defaultdict(list)  # dict: param_id -> list of runs
     for r in runlog:
