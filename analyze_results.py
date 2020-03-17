@@ -62,8 +62,9 @@ def main(args):
 
         print()
         print('# Individual results for the best one')
-        best_param_id = ress.iloc[0]['param_id']
-        print(df[df['param_id'] == best_param_id])
+        for i in range(5):
+            best_param_id = ress.iloc[i]['param_id']
+            print(df[df['param_id'] == best_param_id])
 
 
 if __name__ == '__main__':
