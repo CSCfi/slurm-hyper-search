@@ -107,7 +107,7 @@ def parse_mem(s):
 
 def load_slurm_data(slurm_ids):
     cmd = ['sacct', '-P', '-n', '--format', 'JobId,State,ElapsedRaw,MaxRSS',
-           '-j', ','.join(slurm_ids)]
+           '-j', ','.join(si for si in slurm_ids if si[:6] != 'SERIAL')]
 
     res = subprocess.run(cmd, stdout=subprocess.PIPE)
     output = res.stdout.decode('utf-8')
