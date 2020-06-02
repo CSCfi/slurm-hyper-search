@@ -27,7 +27,7 @@ def load_results(fn, measures=None):
             }
             for p in parts[1].split('-'):
                 if len(p) > 0:
-                    pp = p.rstrip().split()
+                    pp = re.split('\s|=', p.rstrip())
                     if len(pp) == 1:
                         n = pp[0]
                         v = None

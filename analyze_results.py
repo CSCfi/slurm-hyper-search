@@ -25,7 +25,8 @@ def main(args):
         print('Wrote results to', args.output)
 
     best_per_testset = {}
-    for testset in sorted(df.result_name.unique()):
+    result_names = df.result_name.unique()
+    for testset in sorted(result_names):
         idx = df['result_name'] == testset
         dft = df[idx]
         print()
@@ -46,10 +47,15 @@ def main(args):
         def aggregate_results(x):
             xm = x.mean()
             v = {}
+            for rn in result_names:
+                v[rn] = 0.0
             for index, row in x.iterrows():
                 rn = row['result_name']
+                assert rn in result_names
                 v[rn] = row[args.meas]/best_per_testset[rn]
-
+                # if rn.startswith('combo'):
+                #     v[rn] *= 1.2
+            assert len(v) == len(result_names)
             xm['overall_score'] = reduce(lambda x, y: x * y, v.values())
             return xm.drop(columns='slurm_id')
 
@@ -62,9 +68,15 @@ def main(args):
 
         print()
         print('# Individual results for the best one')
+        # best_param_id = ress.iloc[0]['param_id']
+        # print(df[df['param_id'] == best_param_id])
         for i in range(5):
             best_param_id = ress.iloc[i]['param_id']
             print(df[df['param_id'] == best_param_id])
+
+        print("\n# Best {} per testset".format(args.meas))
+        for rn in result_names:
+            print('{:30} {:.5}'.format(rn, best_per_testset[rn]))
 
 
 if __name__ == '__main__':
