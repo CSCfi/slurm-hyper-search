@@ -17,9 +17,13 @@ def load_results(fn, measures=None):
         measures = measures.split(',')
 
     with open(fn, 'r') as fp:
-        for line in fp:
+        for i, line in enumerate(fp):
+            line_ok = True
             m_idx = 0
             parts = line.rstrip().split('|')
+            if not parts[0].isdigit():
+                print('BAD LINE number {}:'.format(i), line)
+                continue
             r = {
                 'param_id': int(parts[0]),
                 'slurm_id': parts[2],
@@ -27,7 +31,7 @@ def load_results(fn, measures=None):
             }
             for p in parts[1].split('-'):
                 if len(p) > 0:
-                    pp = p.rstrip().split()
+                    pp = re.split('\s|=', p.rstrip())
                     if len(pp) == 1:
                         n = pp[0]
                         v = None
@@ -49,8 +53,9 @@ def load_results(fn, measures=None):
                             print('ERROR: measure {} has no name in {}, '
                                   'please specify with --measures '
                                   'argument'.format(p, fn))
-                            print(' LINE:', line)
-                            sys.exit(1)
+                            print('LINE number {}:'.format(i), line)
+                            line_ok = False
+                            break
                         n = measures[m_idx]
                         v = pp[0]
                         m_idx += 1
@@ -59,7 +64,8 @@ def load_results(fn, measures=None):
 
                     v = int(v) if v.isdigit() else float(v)
                     r[n] = v
-            results.append(r)
+            if line_ok:
+                results.append(r)
     return results
 
 
