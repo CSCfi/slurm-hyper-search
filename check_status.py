@@ -11,7 +11,7 @@ import subprocess
 import sys
 
 
-def load_results(fn, measures=None):
+def load_results(fn, measures=None, result_in_parts=False, safe_measure_names=False):
     results = []
     if measures:
         measures = measures.split(',')
@@ -24,14 +24,15 @@ def load_results(fn, measures=None):
             if not parts[0].isdigit():
                 print('BAD LINE number {}:'.format(i), line)
                 continue
-            r = {
+            r_tags = {
                 'param_id': int(parts[0]),
                 'slurm_id': parts[2],
                 'result_name': parts[3]
             }
+            r_params = {}
             for p in parts[1].split('-'):
                 if len(p) > 0:
-                    pp = re.split('\s|=', p.rstrip())
+                    pp = re.split(r'\s|=', p.rstrip())
                     if len(pp) == 1:
                         n = pp[0]
                         v = None
@@ -44,7 +45,8 @@ def load_results(fn, measures=None):
                                 v = float(v)
                             except ValueError:
                                 pass
-                    r[n] = v
+                    r_params[n] = v
+            r_measures = {}
             for p in parts[4:]:
                 if len(p) > 0:
                     pp = p.split()
@@ -63,8 +65,14 @@ def load_results(fn, measures=None):
                         n, v = pp
 
                     v = int(v) if v.isdigit() else float(v)
-                    r[n] = v
+                    if safe_measure_names:
+                        n = n.replace('@', '_at_')
+                    r_measures[n] = v
             if line_ok:
+                if result_in_parts:
+                    r = (r_tags, r_params, r_measures)
+                else:
+                    r = {**r_tags, **r_params, **r_measures}
                 results.append(r)
     return results
 
