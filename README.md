@@ -1,5 +1,7 @@
 # Simple hyper-parameter search for Slurm-based HPC clusters
 
+<img src="https://www.csc.fi/documents/10180/524564/en_horizontal_cef_logo_2-800px.png/cda2f571-dfca-cda3-40fb-a8a06656d46b?t=1602756015080&imagePreview=1" />
+
 This repository aims to provide a very light-weight and implementation agnostic template for running hyper-parameter optimization runs on a Slurm-based HPC cluster.  The main ideas:
 
 - **Random search for hyper-parameter optimization**: easy to implement and has been deemed as more efficient than grid search. See [*Random Search for Hyper-Parameter Optimization*, J. Bengstra and Y. Bengio, JMLR 13 (2012)](http://www.jmlr.org/papers/volume13/bergstra12a/bergstra12a.pdf).
